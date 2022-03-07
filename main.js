@@ -96,7 +96,7 @@ angle = 0.0;
     glMatrix.mat4.fromScaling(scaleCube_matrix, [1, 0.3, 0.5]);
 
     translateCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.0, 1.4, 0.0]);
+    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.0, 1.2, 0.0]);
 
     MCube = glMatrix.mat4.create();
     glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
@@ -113,7 +113,7 @@ angle = 0.0;
     glMatrix.mat4.fromRotation(rotationCylinder_matrix, rotationangle, [1, 1, 1]);
 
     translateCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCylinder_matrix, [0.6, 0.2, 0.5]);
+    glMatrix.mat4.fromTranslation(translateCylinder_matrix, [0.6, 0.15, 0.5]);
 
     MCylinder = glMatrix.mat4.create();
     glMatrix.mat4.mul(MCylinder, rotationCylinder_matrix, scaleCylinder_matrix);
@@ -132,7 +132,7 @@ angle = 0.0;
     glMatrix.mat4.fromRotation(rotationCylinder_matrix, rotationangle, [1, 1, 1]);
 
     translateCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCylinder_matrix, [-0.6, 0.2, 0.5]);
+    glMatrix.mat4.fromTranslation(translateCylinder_matrix, [-0.6, 0.15, 0.5]);
 
     MCylinder = glMatrix.mat4.create();
     glMatrix.mat4.mul(MCylinder, rotationCylinder_matrix, scaleCylinder_matrix);
@@ -150,7 +150,7 @@ angle = 0.0;
     glMatrix.mat4.fromRotation(rotationCylinder_matrix, rotationangle, [1, 1, 1]);
 
     translateCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCylinder_matrix, [-0.6, 0.2, -0.6]);
+    glMatrix.mat4.fromTranslation(translateCylinder_matrix, [-0.6, 0.15, -0.6]);
 
     MCylinder = glMatrix.mat4.create();
     glMatrix.mat4.mul(MCylinder, rotationCylinder_matrix, scaleCylinder_matrix);
@@ -169,7 +169,7 @@ angle = 0.0;
     glMatrix.mat4.fromRotation(rotationCylinder_matrix, rotationangle, [1, 1, 1]);
 
     translateCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCylinder_matrix, [0.6, 0.2, -0.6]);
+    glMatrix.mat4.fromTranslation(translateCylinder_matrix, [0.6, 0.15, -0.6]);
 
     MCylinder = glMatrix.mat4.create();
     glMatrix.mat4.mul(MCylinder, rotationCylinder_matrix, scaleCylinder_matrix);
