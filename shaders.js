@@ -1,8 +1,8 @@
 simpleShader = function (gl) {
 	var vertexShaderSource = `
 		uniform   mat4 uProjectionMatrix;	
-    uniform   mat4 uViewMatrix;
-    uniform   mat4 uRotationMatrix;
+    	uniform   mat4 uViewMatrix;
+    	uniform   mat4 uRotationMatrix;
 		uniform   mat4 uM;	
 
 		attribute vec3 aPosition;					
