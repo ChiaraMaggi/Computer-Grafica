@@ -22,11 +22,8 @@ angle = 0.0;
     cube = new Cube(10);
     createObjectBuffers(gl,cube);
     
-    cylinder = new Cylinder(10);
+    cylinder = new Cylinder(100);
     createObjectBuffers(gl,cylinder );
-
-    cylinder2 = new Cylinder(10);
-    createObjectBuffers(gl, cylinder2);
     }
 
     function drawObject(gl, obj, fillColor) {  
