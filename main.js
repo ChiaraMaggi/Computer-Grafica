@@ -90,7 +90,7 @@ angle = 0.0;
     gl.uniformMatrix4fv(simpleShader.uM,false,glMatrix.mat4.create());
 
     scaleCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scaleCube_matrix, [1, 0.3, 0.5]);
+    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.9, 0.3, 0.5]);
 
     translateCube_matrix = glMatrix.mat4.create();
     glMatrix.mat4.fromTranslation(translateCube_matrix, [0.0, 1.2, 0.0]);
@@ -99,7 +99,89 @@ angle = 0.0;
     glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
 
     gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
-    drawObject(gl,cube,[0.8,0.1,0.1]);
+    drawObject(gl,cube,[0.56,1.0,0.04]);
+    
+    //PARTE SOPRA
+    scaleCube_matrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.55, 0.3, 0.5]);
+
+    translateCube_matrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.4, 2.5, 0.0]);
+
+    MCube = glMatrix.mat4.create();
+    glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
+
+    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
+    drawObject(gl,cube,[0.56,1.0,0.04]);
+
+    //NERO
+    gl.uniformMatrix4fv(simpleShader.uM,false,glMatrix.mat4.create());
+
+    scaleCube_matrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.7, 0.2, 0.3]);
+
+    translateCube_matrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromTranslation(translateCube_matrix, [-0.3, 2.5, 0.0]);
+
+    MCube = glMatrix.mat4.create();
+    glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
+
+    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
+    drawObject(gl,cube,[0.0,0.0,0.0]);
+    
+    //poltrona
+    scaleCube_matrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.3, 0.1, 0.3]);
+    
+    translateCube_matrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.8, 11.0, 0.0]);
+    
+    MCube = glMatrix.mat4.create();
+    glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
+    
+    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
+    drawObject(gl,cube,[0.67 ,0.58,0.38]);
+    
+    //schienale
+      
+    scaleCube_matrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.1, 0.5, 0.3]);
+
+    translateCube_matrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.6, 1.2, 0.0]);
+
+    MCube = glMatrix.mat4.create();
+    glMatrix.mat4.mul(MCube, translateCube_matrix, scaleCube_matrix);
+
+    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
+    drawObject(gl,cube,[0.67, 0.58, 0.38]);
+    
+    //bracciolo 1
+    scaleCube_matrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.3, 0.1, 0.1]);
+
+    translateCube_matrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.8, 13.0, 2.0]);
+
+    MCube = glMatrix.mat4.create();
+    glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
+
+    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
+    drawObject(gl,cube,[0.67, 0.58, 0.38]);
+    
+    //bracciolo 2
+    scaleCube_matrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.3, 0.1, 0.1]);
+
+    translateCube_matrix = glMatrix.mat4.create();
+    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.8, 13.0, -2.0]);
+
+    MCube = glMatrix.mat4.create();
+    glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
+
+    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
+    drawObject(gl,cube,[0.67,0.58, 0.38]);
+
 
     //RUOTA 1
     scaleCylinder_matrix = glMatrix.mat4.create();
