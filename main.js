@@ -1,273 +1,326 @@
-angle = 0.0;
-
-    function setupWebGL() {
-		 canvas = document.getElementById("OUTPUT-CANVAS");
-		gl = canvas.getContext('webgl');
-	  }
-
-    function createObjectBuffers(gl, obj) {
-      
-    	obj.vertexBuffer = gl.createBuffer();
-    	gl.bindBuffer(gl.ARRAY_BUFFER, obj.vertexBuffer);
-    	gl.bufferData(gl.ARRAY_BUFFER, obj.vertices, gl.STATIC_DRAW);
-    	gl.bindBuffer(gl.ARRAY_BUFFER, null);
+/*
+the FollowFromUpCamera always look at the car from a position abova right over the car
+*/
+FollowFromUpCamera = function(){
+    /* the only data it needs is the position of the camera */
+    this.frame = glMatrix.mat4.create();
     
-    	obj.indexBuffer = gl.createBuffer();
-    	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexBuffer);
-    	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, obj.triangleIndices, gl.STATIC_DRAW);
-    	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-    };
-
-  	function setupWhatToDraw() {  
-    cube = new Cube(10);
-    createObjectBuffers(gl,cube);
-    
-    cylinder = new Cylinder(100);
-    createObjectBuffers(gl,cylinder );
+    /* update the camera with the current car position */
+    this.update = function(car_position){
+        this.frame = car_position;
     }
 
-    function drawObject(gl, obj, fillColor) {  
-  	gl.bindBuffer(gl.ARRAY_BUFFER, obj.vertexBuffer);
-  	gl.enableVertexAttribArray(this.simpleShader.aPositionIndex);
-  	gl.vertexAttribPointer(this.simpleShader.aPositionIndex, 3, gl.FLOAT, false, 0, 0);
+    /* return the transformation matrix to transform from worlod coordiantes to the view reference frame */
+    this.matrix = function(){
+        let eye = glMatrix.vec3.create();
+        let target = glMatrix.vec3.create();
+        let up = glMatrix.vec4.create();
     
-  	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexBuffer);
-  	gl.uniform3fv(this.simpleShader.uColorLocation, fillColor);
-  	gl.drawElements(gl.TRIANGLES, obj.triangleIndices.length, gl.UNSIGNED_SHORT, 0);
-  
-  
-  	gl.disableVertexAttribArray(this.simpleShader.aPositionIndex);
-  	gl.bindBuffer(gl.ARRAY_BUFFER, null);
-  };
+        glMatrix.vec3.transformMat4(eye, [0, 50, 0], this.frame);
+        glMatrix.vec3.transformMat4(target, [0.0, 0.0, 0.0, 1.0], this.frame);
+        glMatrix.vec4.transformMat4(up, [0.0, 0.0, -1, 0.0], this.frame);
+    
+        /* costruisce la matrice di trasformazione, cioè l'inverso del frame di vista */
+        return glMatrix.mat4.lookAt(glMatrix.mat4.create(),eye,target,up.slice(0,3));	
+    }
+}
 
-  function setupHowToDraw() {
-    simpleShader = new simpleShader(gl);
-  }
+/*
+the ChaseCamera always look at the car from behind the car, slightly above
+*/
+ChaseCamera = function(){
+    /* the only data it needs is the frame of the camera */
+    this.frame = [0,0,0];
+  
+    /* update the camera with the current car position */
+    this.update = function(car_frame){
+        this.frame = car_frame.slice();
+    }
 
-  function draw(){
+    /* return the transformation matrix to transform from world coordiantes to the view reference frame */
+    this.matrix = function(){
+        let eye = glMatrix.vec3.create();
+        let target = glMatrix.vec3.create();
+        glMatrix.vec3.transformMat4(eye, [0, 2, 6, 1.0], this.frame);
+        glMatrix.vec3.transformMat4(target, [0.0, 0.0, 0.0, 1.0], this.frame);
+        return glMatrix.mat4.lookAt(glMatrix.mat4.create(),eye, target,[0, 1, 0]);	
+    }
+}
+
+/* the main object to be implementd */
+var Renderer = new Object();
+
+/* array of cameras that will be used */
+Renderer.cameras = [];
+// add a FollowFromUpCamera
+Renderer.cameras.push(new FollowFromUpCamera());
+Renderer.cameras.push(new ChaseCamera());
+
+// set the camera currently in use
+Renderer.currentCamera = 1;
+
+/*
+create the buffers for an object as specified in common/shapes/triangle.js
+*/
+Renderer.createObjectBuffers = function (gl, obj) {
+    obj.vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, obj.vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, obj.vertices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    obj.indexBufferTriangles = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexBufferTriangles);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, obj.triangleIndices, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+    // create edges
+    var edges = new Uint16Array(obj.numTriangles * 3 * 2);
+    for (var i = 0; i < obj.numTriangles; ++i) {
+        edges[i * 6 + 0] = obj.triangleIndices[i * 3 + 0];
+        edges[i * 6 + 1] = obj.triangleIndices[i * 3 + 1];
+        edges[i * 6 + 2] = obj.triangleIndices[i * 3 + 0];
+        edges[i * 6 + 3] = obj.triangleIndices[i * 3 + 2];
+        edges[i * 6 + 4] = obj.triangleIndices[i * 3 + 1];
+        edges[i * 6 + 5] = obj.triangleIndices[i * 3 + 2];
+    }
+
+    obj.indexBufferEdges = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexBufferEdges);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, edges, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+};
+
+/*
+draw an object as specified in common/shapes/triangle.js for which the buffer 
+have alrady been created
+*/
+Renderer.drawObject = function (gl, obj, fillColor, lineColor) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, obj.vertexBuffer);
+    gl.enableVertexAttribArray(this.uniformShader.aPositionIndex);
+    gl.vertexAttribPointer(this.uniformShader.aPositionIndex, 3, gl.FLOAT, false, 0, 0);
+
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+    gl.polygonOffset(1.0, 1.0);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexBufferTriangles);
+    gl.uniform4fv(this.uniformShader.uColorLocation, fillColor);
+    gl.drawElements(gl.TRIANGLES, obj.triangleIndices.length, gl.UNSIGNED_SHORT, 0);
+
+    gl.disable(gl.POLYGON_OFFSET_FILL);
+  
+    gl.uniform4fv(this.uniformShader.uColorLocation, lineColor);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, obj.indexBufferEdges);
+    gl.drawElements(gl.LINES, obj.numTriangles * 3 * 2, gl.UNSIGNED_SHORT, 0);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    gl.disableVertexAttribArray(this.uniformShader.aPositionIndex);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+};
+
+/*
+initialize the object in the scene
+*/
+Renderer.initializeObjects = function (gl) {
+    Game.setScene(scene_0);
+    var weather = Game.scene.weather;
+    this.car = Game.addCar("mycar");
+    Renderer.triangle = new Triangle();
+
+    this.cube = new Cube(10);
+    this.createObjectBuffers(gl,this.cube);
+  
+    this.cylinder = new Cylinder(10);
+    this.createObjectBuffers(gl,this.cylinder );
+  
+    Renderer.createObjectBuffers(gl, this.triangle);
+
+    Renderer.createObjectBuffers(gl,Game.scene.trackObj);
+    Renderer.createObjectBuffers(gl,Game.scene.groundObj);
+    for (var i = 0; i < Game.scene.buildings.length; ++i) 
+	  	Renderer.createObjectBuffers(gl,Game.scene.buildingsObj[i]);
+};
+
+
+
+/*
+draw the car
+*/
+Renderer.drawCar = function (gl) {
+    M                 = glMatrix.mat4.create();
+    rotate_transform  = glMatrix.mat4.create();
+    translate_matrix  = glMatrix.mat4.create();
+    scale_matrix      = glMatrix.mat4.create();
+  
+    /* draw the body of car */
+    glMatrix.mat4.fromTranslation(translate_matrix,[0,1,1]);
+    glMatrix.mat4.fromScaling(scale_matrix,[0.7,0.35,1]);
+    glMatrix.mat4.mul(M,scale_matrix,translate_matrix);
+    glMatrix.mat4.fromRotation(rotate_transform,-0.1,[1,0,0]);
+    glMatrix.mat4.mul(M,rotate_transform,M);
+    glMatrix.mat4.fromTranslation(translate_matrix,[0,0.1,-1]);
+    glMatrix.mat4.mul(M,translate_matrix,M);
+
+    Renderer.stack.push();
+    Renderer.stack.multiply(M);
+    gl.uniformMatrix4fv(this.uniformShader.uModelViewMatrixLocation, false, this.stack.matrix);
+
+    this.drawObject(gl,this.cube,[0.8,0.3,0.0,1.0],[0.0,0.0,0.0,1.0]);
+    Renderer.stack.pop();
+
+
+    /* draw the wheels */
+    Mw = glMatrix.mat4.create();
+    
+    /* wheel 1 */
+    glMatrix.mat4.fromRotation(rotate_transform,3.14/2.0,[0,0,1]);
+    glMatrix.mat4.fromTranslation(translate_matrix,[1,0,0]);
+    glMatrix.mat4.mul(Mw,translate_matrix,rotate_transform);
+    
+    glMatrix.mat4.fromScaling(scale_matrix,[0.1,0.25,0.2]);
+    glMatrix.mat4.mul(Mw,scale_matrix,Mw);
+    /* now the diameter of the wheel is 2*0.2 = 0.4 and the wheel is centered in 0,0,0 */ 
+    glMatrix.mat4.identity(M);
+    
+    glMatrix.mat4.fromTranslation(translate_matrix,[-0.8,0.2,-0.7]);
+    glMatrix.mat4.mul(M,translate_matrix,Mw);
+
+    Renderer.stack.push();
+    Renderer.stack.multiply(M);
+    gl.uniformMatrix4fv(this.uniformShader.uModelViewMatrixLocation, false, this.stack.matrix);
+  
+    this.drawObject(gl,this.cylinder,[0.1,0.11,0.1,1.0],[0.0,0.0,0.0,1.0]);
+    Renderer.stack.pop();
+
+    /* wheel 2 */
+    glMatrix.mat4.fromTranslation(translate_matrix,[0.8,0.2,-0.7]);
+    glMatrix.mat4.mul(M,translate_matrix,Mw);
+
+    Renderer.stack.push();
+    Renderer.stack.multiply(M);
+    gl.uniformMatrix4fv(this.uniformShader.uModelViewMatrixLocation, false, this.stack.matrix); 
+    this.drawObject(gl,this.cylinder,[0.1,0.11,0.1,1.0],[0.0,0.0,0.0,1.0]);
+    Renderer.stack.pop();
+
+    /* wheel 3 */
+    glMatrix.mat4.fromTranslation(translate_matrix,[0.8,0.25,0.7]);
+    glMatrix.mat4.mul(M,translate_matrix,Mw);
+  
+    Renderer.stack.push();
+    Renderer.stack.multiply(M);
+    gl.uniformMatrix4fv(this.uniformShader.uModelViewMatrixLocation, false, this.stack.matrix); 
+    Renderer.stack.pop();
+
+    this.drawObject(gl,this.cylinder,[0.1,0.11,0.1,1.0],[0.0,0.0,0.0,1.0]);
+
+    /* wheel 4 */
+    glMatrix.mat4.fromTranslation(translate_matrix,[-0.8,0.3,0.7]);
+    glMatrix.mat4.mul(M,translate_matrix,Mw);
+  
+    Renderer.stack.push();
+    Renderer.stack.multiply(M);
+    gl.uniformMatrix4fv(this.uniformShader.uModelViewMatrixLocation, false, this.stack.matrix); 
+    this.drawObject(gl,this.cylinder,[0.1,0.11,0.1,1.0],[0.0,0.0,0.0,1.0]);
+    Renderer.stack.pop();
+};
+
+
+Renderer.drawScene = function (gl) {
+    var width = this.canvas.width;
+    var height = this.canvas.height
+    var ratio = width / height;
+    this.stack = new MatrixStack();
+
+    gl.viewport(0, 0, width, height);
+  
     gl.enable(gl.DEPTH_TEST);
-    angle+=0.01;
-    
-    gl.clearColor(0.8,0.8,0.8,1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT,gl.DEPTH_BUFFER_BIT);
 
-    // setup the view transform
-    view_transform = glMatrix.mat4.create();
-    glMatrix.mat4.lookAt(view_transform,[0.0,2.0,10.0],[0.0,0.0,0.0],[0,1,0]);
+    // Clear the framebuffer
+    gl.clearColor(0.34, 0.5, 0.74, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // setup the projection transform
-    projection_transform = glMatrix.mat4.create();
-    glMatrix.mat4.perspective(projection_transform, 3.14/4.0, 1.0, 0.001, 15.0);
+    gl.useProgram(this.uniformShader);
+  
+    gl.uniformMatrix4fv(this.uniformShader.uProjectionMatrixLocation, false,glMatrix.mat4.perspective(glMatrix.mat4.create(),3.14 / 4, ratio, 1, 500));
 
-    // rotation aroun Y
-    rotate_transform = glMatrix.mat4.create();
-    glMatrix.mat4.fromRotation(rotate_transform,angle,[0,1,0]);
+    Renderer.cameras[Renderer.currentCamera].update(this.car.frame);
 
-    gl.useProgram(simpleShader);
-    gl.uniformMatrix4fv(simpleShader.uProjectionMatrixLocation,false,projection_transform);
-    gl.uniformMatrix4fv(simpleShader.uViewMatrixLocation,false,view_transform);
-    gl.uniformMatrix4fv(simpleShader.uRotationMatrixLocation,false,rotate_transform);
+    var invV = Renderer.cameras[Renderer.currentCamera].matrix();
 
-    scale_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scale_matrix,[0.1,0.1,0.1]);
-    
-    translate_matrix = glMatrix.mat4.create();
-    axis_matrix = glMatrix.mat4.create();
+    //inizializzo lo stack con la matrice identità: la cima dello stack conterrà la matrice che viene passata allo shader prima di fare di disegni
+    this.stack.loadIdentity();
 
-    for(var i=0; i < 3; ++i){
-      var color_translate   = [0.0,0.0,0.0];
-      var scaling = [0.01,0.01,0.01]; 
-      color_translate[i] = 1.0;
-      scaling[i] = 2;
-      glMatrix.mat4.fromScaling(scale_matrix,scaling);
-      glMatrix.mat4.fromTranslation(translate_matrix,color_translate);
-      glMatrix.mat4.mul(translate_matrix,translate_matrix,scale_matrix);
-      gl.uniformMatrix4fv(simpleShader.uM,false,translate_matrix);
-      drawObject(gl,cube,color_translate);
-    }
-    
-    // Here setup the transformation matrices and the render call to draw your car
-    gl.uniformMatrix4fv(simpleShader.uM,false,glMatrix.mat4.create());
+    // multiply by the view matrix invV
+    this.stack.multiply(invV);
 
-    scaleCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.9, 0.3, 0.5]);
+    // drawing the car
+    this.stack.push();
+    this.stack.multiply(this.car.frame); // projection * viewport
 
-    translateCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.0, 1.2, 0.0]);
+    //gl.uniformMatrix4fv(this.uniformShader.uModelViewMatrixLocation, false, stack.matrix);
+    this.drawCar(gl);
+    this.stack.pop();
 
-    MCube = glMatrix.mat4.create();
-    glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
+    gl.uniformMatrix4fv(this.uniformShader.uModelViewMatrixLocation, false, this.stack.matrix);
 
-    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
-    drawObject(gl,cube,[0.56,1.0,0.04]);
-    
-    //PARTE SOPRA
-    scaleCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.55, 0.3, 0.5]);
-
-    translateCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.4, 2.5, 0.0]);
-
-    MCube = glMatrix.mat4.create();
-    glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
-
-    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
-    drawObject(gl,cube,[0.56,1.0,0.04]);
-
-    //NERO
-    gl.uniformMatrix4fv(simpleShader.uM,false,glMatrix.mat4.create());
-
-    scaleCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.7, 0.2, 0.3]);
-
-    translateCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCube_matrix, [-0.3, 2.5, 0.0]);
-
-    MCube = glMatrix.mat4.create();
-    glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
-
-    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
-    drawObject(gl,cube,[0.0,0.0,0.0]);
-    
-    //poltrona
-    scaleCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.3, 0.1, 0.3]);
-    
-    translateCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.8, 11.0, 0.0]);
-    
-    MCube = glMatrix.mat4.create();
-    glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
-    
-    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
-    drawObject(gl,cube,[0.67 ,0.58,0.38]);
-    
-    //schienale
-      
-    scaleCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.1, 0.5, 0.3]);
-
-    translateCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.6, 1.2, 0.0]);
-
-    MCube = glMatrix.mat4.create();
-    glMatrix.mat4.mul(MCube, translateCube_matrix, scaleCube_matrix);
-
-    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
-    drawObject(gl,cube,[0.67, 0.58, 0.38]);
-    
-    //bracciolo 1
-    scaleCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.3, 0.1, 0.1]);
-
-    translateCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.8, 13.0, 2.0]);
-
-    MCube = glMatrix.mat4.create();
-    glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
-
-    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
-    drawObject(gl,cube,[0.67, 0.58, 0.38]);
-    
-    //bracciolo 2
-    scaleCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scaleCube_matrix, [0.3, 0.1, 0.1]);
-
-    translateCube_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCube_matrix, [0.8, 13.0, -2.0]);
-
-    MCube = glMatrix.mat4.create();
-    glMatrix.mat4.mul(MCube, scaleCube_matrix, translateCube_matrix);
-
-    gl.uniformMatrix4fv(simpleShader.uM,false, MCube);
-    drawObject(gl,cube,[0.67,0.58, 0.38]);
+    // drawing the static elements (ground, track and buldings)
+    this.drawObject(gl, Game.scene.groundObj, [0.3, 0.7, 0.2, 1.0], [0, 0, 0, 1.0]);
+    this.drawObject(gl, Game.scene.trackObj, [0.9, 0.8, 0.7, 1.0], [0, 0, 0, 1.0]);
+    for (var i in Game.scene.buildingsObj) 
+        this.drawObject(gl, Game.scene.buildingsObj[i], [0.8, 0.8, 0.8, 1.0], [0.2, 0.2, 0.2, 1.0]);
+    gl.useProgram(null);
+};
 
 
-    //RUOTA 1
-    scaleCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scaleCylinder_matrix, [0.2, 0.05, 0.2]);
 
-    rotationangle = 90;
-    rotationCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromRotation(rotationCylinder_matrix, rotationangle, [1, 1, 1]);
+Renderer.Display = function () {
+    Renderer.drawScene(Renderer.gl);
+    window.requestAnimationFrame(Renderer.Display) ;
+};
 
-    translateCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCylinder_matrix, [0.6, 0.15, 0.5]);
 
-    MCylinder = glMatrix.mat4.create();
-    glMatrix.mat4.mul(MCylinder, rotationCylinder_matrix, scaleCylinder_matrix);
-    glMatrix.mat4.mul(MCylinder, translateCylinder_matrix, MCylinder);  
+Renderer.setupAndStart = function () {
+    /* create the canvas */
+	Renderer.canvas = document.getElementById("OUTPUT-CANVAS");
+  
+    /* get the webgl context */
+	Renderer.gl = Renderer.canvas.getContext("webgl");
 
-    gl.uniformMatrix4fv(simpleShader.uM, false, MCylinder);
+    /* read the webgl version and log */
+	var gl_version = Renderer.gl.getParameter(Renderer.gl.VERSION); 
+	log("glversion: " + gl_version);
+	var GLSL_version = Renderer.gl.getParameter(Renderer.gl.SHADING_LANGUAGE_VERSION)
+	log("glsl  version: "+GLSL_version);
 
-    drawObject(gl,cylinder,[0.0,0.0,0.0]);
-    
-    //RUOTA 2
-    scaleCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scaleCylinder_matrix, [0.2, 0.05, 0.2]);
+    /* create the matrix stack */
+	Renderer.stack = new MatrixStack();
 
-    rotationangle = 90;
-    rotationCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromRotation(rotationCylinder_matrix, rotationangle, [1, 1, 1]);
+    /* initialize objects to be rendered */
+    Renderer.initializeObjects(Renderer.gl);
 
-    translateCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCylinder_matrix, [-0.6, 0.15, 0.5]);
+    /* create the shader */
+    Renderer.uniformShader = new uniformShader(Renderer.gl);
 
-    MCylinder = glMatrix.mat4.create();
-    glMatrix.mat4.mul(MCylinder, rotationCylinder_matrix, scaleCylinder_matrix);
-    glMatrix.mat4.mul(MCylinder, translateCylinder_matrix, MCylinder);  
+    /*
+    add listeners for the mouse / keyboard events
+    */
+    Renderer.canvas.addEventListener('mousemove',on_mouseMove,false);
+    Renderer.canvas.addEventListener('keydown',on_keydown,false);
+    Renderer.canvas.addEventListener('keyup',on_keyup,false);
 
-    gl.uniformMatrix4fv(simpleShader.uM, false, MCylinder);
+    Renderer.Display();
+}
 
-    drawObject(gl,cylinder,[0.0,0.0,0.0]);    
-    //RUOTA 3
-    scaleCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scaleCylinder_matrix, [0.2, 0.05, 0.2]);
+on_mouseMove = function(e){}
 
-    rotationangle = 90;
-    rotationCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromRotation(rotationCylinder_matrix, rotationangle, [1, 1, 1]);
+on_keyup = function(e){
+	Renderer.car.control_keys[e.key] = false;
+}
+on_keydown = function(e){
+	Renderer.car.control_keys[e.key] = true;
+}
 
-    translateCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCylinder_matrix, [-0.6, 0.15, -0.6]);
+window.onload = Renderer.setupAndStart;
 
-    MCylinder = glMatrix.mat4.create();
-    glMatrix.mat4.mul(MCylinder, rotationCylinder_matrix, scaleCylinder_matrix);
-    glMatrix.mat4.mul(MCylinder, translateCylinder_matrix, MCylinder);  
-
-    gl.uniformMatrix4fv(simpleShader.uM, false, MCylinder);
-
-    drawObject(gl,cylinder,[0.0,0.0,0.0]);
-
-    //RUOTA 4
-    scaleCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromScaling(scaleCylinder_matrix, [0.2, 0.05, 0.2]);
-
-    rotationangle = 90;
-    rotationCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromRotation(rotationCylinder_matrix, rotationangle, [1, 1, 1]);
-
-    translateCylinder_matrix = glMatrix.mat4.create();
-    glMatrix.mat4.fromTranslation(translateCylinder_matrix, [0.6, 0.15, -0.6]);
-
-    MCylinder = glMatrix.mat4.create();
-    glMatrix.mat4.mul(MCylinder, rotationCylinder_matrix, scaleCylinder_matrix);
-    glMatrix.mat4.mul(MCylinder, translateCylinder_matrix, MCylinder);  
-
-    gl.uniformMatrix4fv(simpleShader.uM, false, MCylinder);
-
-    drawObject(gl,cylinder,[0.0,0.0,0.0]);
-    // ---------------------------------------------------------------------------
-  }
-
-  function setup(){
-    setupWebGL();
-    setupWhatToDraw();
-    setupHowToDraw();
-  }
-
-  function helloRotations(){
-    setup();
-    id = setInterval(draw, 20);
-    }
-window.onload = helloRotations;
+update_camera = function (value){
+  Renderer.currentCamera = value;
+}
