@@ -16,7 +16,7 @@ FollowFromUpCamera = function(){
         let target = glMatrix.vec3.create();
         let up = glMatrix.vec4.create();
     
-        glMatrix.vec3.transformMat4(eye, [0, 50, 0], this.frame);
+        glMatrix.vec3.transformMat4(eye, [0, 10, 0], this.frame);
         glMatrix.vec3.transformMat4(target, [0.0, 0.0, 0.0, 1.0], this.frame);
         glMatrix.vec4.transformMat4(up, [0.0, 0.0, -1, 0.0], this.frame);
     
@@ -57,7 +57,7 @@ Renderer.cameras.push(new FollowFromUpCamera());
 Renderer.cameras.push(new ChaseCamera());
 
 // set the camera currently in use
-Renderer.currentCamera = 1;
+Renderer.currentCamera = 0;
 
 /*
 create the buffers for an object as specified in common/shapes/triangle.js
@@ -158,6 +158,21 @@ Renderer.drawCar = function (gl) {
     glMatrix.mat4.fromRotation(rotate_transform,-0.1,[1,0,0]);
     glMatrix.mat4.mul(M,rotate_transform,M);
     glMatrix.mat4.fromTranslation(translate_matrix,[0,0.1,-1]);
+    glMatrix.mat4.mul(M,translate_matrix,M);
+
+    Renderer.stack.push();
+    Renderer.stack.multiply(M);
+    gl.uniformMatrix4fv(this.uniformShader.uModelViewMatrixLocation, false, this.stack.matrix);
+
+    this.drawObject(gl,this.cube,[0.8,0.3,0.0,1.0],[0.0,0.0,0.0,1.0]);
+    Renderer.stack.pop();
+
+    glMatrix.mat4.fromTranslation(translate_matrix,[0,1,1]);
+    glMatrix.mat4.fromScaling(scale_matrix,[0.6,0.35,0.6]);
+    glMatrix.mat4.mul(M,scale_matrix,translate_matrix);
+    glMatrix.mat4.fromRotation(rotate_transform,-0.1,[1,0,0]);
+    glMatrix.mat4.mul(M,rotate_transform,M);
+    glMatrix.mat4.fromTranslation(translate_matrix,[0,0.7,-0.3]);
     glMatrix.mat4.mul(M,translate_matrix,M);
 
     Renderer.stack.push();
